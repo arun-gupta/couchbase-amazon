@@ -2,17 +2,25 @@
 
 == Create Couchbase Instance
 
- `create-instance.sh`
+*Script*: `create-instance.sh`
+
+*Usage*: `create-instance.sh`
 
 == Configure Couchbase Instance
 
-`configure-instance.sh`
+*Script*: `configure-instance.sh`
+
+*Usage*: `configure-instance.sh <public-ip-1> <public-ip-2> ...`
 
 == Create Couchbase Cluster
 
-`create-cluster.sh`
+*Script*: `create-cluster.sh`
+
+*Usage*: `create-cluster.sh <public-ip-1> <public-ip-2> ...`
 
 == Rebalance Couchbase Cluster
 
-`create-cluster.sh`
+*Script*: `create-cluster.sh`
+
+*Usage*: `create-cluster.sh <public-ip-1> <public-ip-2> ...`
 
