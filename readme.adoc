@@ -1,0 +1,5 @@
+= Couchbase on Amazon using AWS CLI
+
+. *Provision Couchbase*: `run-instance.sh`
+. *Configure Couchbase*: `configure-instance.sh`
+
