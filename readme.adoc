@@ -1,5 +1,18 @@
 = Couchbase on Amazon using AWS CLI
 
-. *Provision Couchbase*: `run-instance.sh`
-. *Configure Couchbase*: `configure-instance.sh`
+== Create Couchbase Instance
+
+ `create-instance.sh`
+
+== Configure Couchbase Instance
+
+`configure-instance.sh`
+
+== Create Couchbase Cluster
+
+`create-cluster.sh`
+
+== Rebalance Couchbase Cluster
+
+`create-cluster.sh`
 
