@@ -6,11 +6,26 @@
 
 *Usage*: `create-instance.sh`
 
+Run this script N times to create an N-node cluster. It takes a few minutes for the images to be provisioned. Check for the instance to be provisioned in https://us-west-1.console.aws.amazon.com/ec2/v2/home?region=us-west-1#Instances:sort=instanceId[EC2 Console] or using `aws ec2 describe-instance-status --instance-ids <instance-id-1> <instance-id-2> ...`.
+
 == Configure Couchbase Instance
 
+Find public IP address of the created instances:
+
+```
+aws ec2 describe-instances --query 'Reservations[*].Instances[*].[PublicDnsName]' --filters Name=instance-state-name,Values=running --output text
+ec2-54-153-92-179.us-west-1.compute.amazonaws.com
+```
 *Script*: `configure-instance.sh`
 
 *Usage*: `configure-instance.sh <public-ip-1> <public-ip-2> ...`
+
+This configures:
+
+. Memory
+. Services (index, data and query)
+. Auth credentials (username: `Administrator`, password: `password`)
+. Loads `travel-sample` bucket
 
 == Create Couchbase Cluster
 
@@ -20,7 +35,7 @@
 
 == Rebalance Couchbase Cluster
 
-*Script*: `create-cluster.sh`
+*Script*: `rebalance-cluster.sh`
 
-*Usage*: `create-cluster.sh <public-ip-1> <public-ip-2> ...`
+*Usage*: `rebalance-cluster.sh <public-ip-1> <public-ip-2> ...`
 
