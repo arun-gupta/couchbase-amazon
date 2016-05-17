@@ -1,0 +1,1311 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "AWS Marketplace Couchbase Stack",
+	"Parameters": {
+		"VPCCIDR": {
+			"Description": "CIDR Block for the VPC you are creating.",
+			"Type": "String",
+			"Default": "10.0.0.0/16",
+			"AllowedPattern": "[a-zA-Z0-9]+\\..+"
+		},
+		"NotificationEmail": {
+			"Description": "Email address to notify if there are any scaling operations [ optional]",
+			"Default": "",
+			"Type": "String"
+		},
+
+		"PublicSubCIDR": {
+			"Description": "CIDR Block for the Public DMZ Subnet located in the new VPC.",
+			"Type": "String",
+			"Default": "10.0.2.0/24",
+			"AllowedPattern": "[a-zA-Z0-9]+\\..+"
+		},
+		"PrivSubCIDR": {
+			"Description": "CIDR Block for Private Subnet where Couchbase will be deployed.",
+			"Type": "String",
+			"Default": "10.0.1.0/24",
+			"AllowedPattern": "[a-zA-Z0-9]+\\..+"
+		},
+		"RemoteAccessCIDR": {
+			"Description": "IP CIDR from which you are likely to SSH into the CouchbaseNodes instance. You can add rules later by modifying the created security groups e.g. 54.32.98.160/32.",
+			"Type": "String",
+			"MinLength": "9",
+			"MaxLength": "18",
+			"Default": "0.0.0.0/0",
+			"AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+			"ConstraintDescription": "must be a valid CIDR range of the form x.x.x.x/x."
+		},
+		"KeyName": {
+			"Type": "AWS::EC2::KeyPair::KeyName",
+			"Default": "home",
+			"Description": "Name of an existing EC2 KeyPair. CouchbaseNodes instance will launch with this KeyPair."
+		},
+		"NATInstanceType": {
+			"Description": "Amazon EC2 instance type for the NAT Instances.",
+			"Type": "String",
+			"Default": "m3.medium",
+			"AllowedValues": [
+				"m3.medium",
+				"t2.small",
+				"t2.medium",
+				"m1.small",
+				"m1.medium",
+				"m1.large",
+				"m1.xlarge"
+			]
+		},
+		"DataServersInstanceType": {
+			"Description": "Amazon EC2 instance type for Couchbase Data Nodes.",
+			"Type": "String",
+			"Default": "m3.medium",
+			"AllowedValues": [
+				"m3.medium",
+				"t2.small",
+				"t2.medium",
+				"m1.small",
+				"m1.medium",
+				"m1.large",
+				"m1.xlarge"
+			]
+		},
+
+		"DataServerCount": {
+			"Description": "Number of Couchbase Data Nodes",
+			"Type": "String",
+			"Default": "1",
+			"AllowedValues": [
+				"1", "2", "3", "4", "5", "6", "7", "8"
+			]
+		},
+
+		"IndexServersInstanceType": {
+			"Description": "Amazon EC2 instance type for Couchbase Index Nodes.",
+			"Type": "String",
+			"Default": "m3.medium",
+			"AllowedValues": [
+				"m3.medium",
+				"t2.small",
+				"t2.medium",
+				"m1.small",
+				"m1.medium",
+				"m1.large",
+				"m1.xlarge"
+			]
+		},
+
+		"IndexServerCount": {
+			"Description": "Number of Couchbase Index Nodes",
+			"Type": "String",
+			"Default": "1",
+			"AllowedValues": [
+				"1", "2", "3", "4", "5", "6", "7", "8"
+			]
+		},
+
+				"QueryServersInstanceType": {
+			"Description": "Amazon EC2 instance type for Couchbase Query Nodes.",
+			"Type": "String",
+			"Default": "m3.medium",
+			"AllowedValues": [
+				"m3.medium",
+				"t2.small",
+				"t2.medium",
+				"m1.small",
+				"m1.medium",
+				"m1.large",
+				"m1.xlarge"
+			]
+		},
+
+		"QueryServerCount": {
+			"Description": "Number of Couchbase Query Nodes",
+			"Type": "String",
+			"Default": "1",
+			"AllowedValues": [
+				"1", "2", "3", "4", "5", "6", "7", "8"
+			]
+		},
+
+		"AvailabilityZone": {
+			"Description": "Pick an AvailabilityZone for Couchbase Subnet",
+			"Default": "us-west-2a",
+			"Type": "AWS::EC2::AvailabilityZone::Name"
+		}
+	},
+
+
+	"Metadata": {
+		"AWS::CloudFormation::Interface": {
+			"ParameterGroups": [{
+				"Label": {
+					"default": "Couchbase AWS Infrastructure"
+				},
+				"Description": {
+					"default": ""
+				},
+				"Parameters": ["DataServersInstanceType","DataServerCount","IndexServersInstanceType","IndexServerCount","QueryServersInstanceType","QueryServerCount","KeyPair"]
+			}
+			],
+			"ParameterLabels": {
+
+			}
+		}
+	},
+
+
+
+	"Conditions": {
+		"AllowNotificationEmail": {
+			"Fn::Not": [{
+				"Fn::Equals": [{
+						"Ref": "NotificationEmail"
+					},
+					""
+				]
+			}]
+		}
+	},
+
+	"Mappings": {
+		"AWSNATAMI": {
+			"eu-central-1": {
+				"AMI": "ami-46073a5b"
+			},
+			"sa-east-1": {
+				"AMI": "ami-fbfa41e6"
+			},
+			"ap-northeast-1": {
+				"AMI": "ami-03cf3903"
+			},
+			"eu-west-1": {
+				"AMI": "ami-6975eb1e"
+			},
+			"us-east-1": {
+				"AMI": "ami-303b1458"
+			},
+			"us-west-1": {
+				"AMI": "ami-7da94839"
+			},
+			"us-west-2": {
+				"AMI": "ami-69ae8259"
+			},
+			"ap-southeast-2": {
+				"AMI": "ami-e7ee9edd"
+			},
+			"ap-southeast-1": {
+				"AMI": "ami-b49dace6"
+			}
+		},
+		"DomainNameMapping": {
+			"eu-central-1": {
+				"NAME": "eu-central-1.compute.internal"
+			},
+			"sa-east-1": {
+				"NAME": "sa-east-1.compute.internal"
+			},
+			"ap-northeast-1": {
+				"NAME": "ap-northeast-1.compute.internal"
+			},
+			"eu-west-1": {
+				"NAME": "eu-west-1.compute.internal"
+			},
+			"us-east-1": {
+				"NAME": "ec2.internal"
+			},
+			"us-west-1": {
+				"NAME": "us-west-1.compute.internal"
+			},
+			"us-west-2": {
+				"NAME": "us-west-2.compute.internal"
+			},
+			"ap-southeast-2": {
+				"NAME": "ap-southeast-2.compute.internal"
+			},
+			"ap-southeast-1": {
+				"NAME": "ap-southeast-1.compute.internal"
+			}
+		},
+
+
+        "CouchbaseNodeAMI": {
+            "eu-west-1": {
+                "AMI": "ami-bff32ccc"
+            },
+            "ap-southeast-1": {
+                "AMI": "ami-c9b572aa"
+            },
+            "ap-southeast-2": {
+                "AMI": "ami-48d38c2b"
+            },
+            "eu-central-1": {
+                "AMI": "ami-bc5b48d0"
+            },
+            "ap-northeast-1": {
+                "AMI": "ami-383c1956"
+            },
+            "us-east-1": {
+                "AMI": "ami-60b6c60a"
+            },
+            "sa-east-1": {
+                "AMI": "ami-6817af04"
+            },
+            "us-west-1": {
+                "AMI": "ami-d5ea86b5"
+            },
+            "us-west-2": {
+                "AMI": "ami-f0091d91"
+            }
+        }
+
+
+	},
+	"Outputs": {
+		"NATInstanceEIP": {
+			"Description": "NAT Instance located in DMZ Subnet",
+			"Value": {
+				"Fn::Join": [
+					"", [
+						"NAT Server IP:", {
+							"Fn::GetAtt": [
+								"NATInstance",
+								"PublicIp"
+							]
+						}
+					]
+				]
+			}
+		},
+		"VPCID": {
+			"Description": "VPC-ID of the newly created VPC",
+			"Value": {
+				"Ref": "VPC"
+			}
+		},
+		"PublicSubnet": {
+			"Description": "Subnet-ID of the Public or DMZ Subnet",
+			"Value": {
+				"Ref": "PublicSubnet"
+			}
+		},
+		"PrivateSubnet": {
+			"Description": "Subnet-ID of the Private Subnet where Couchbase Cluster will be deployed",
+			"Value": {
+				"Ref": "CouchbaseSubnet"
+			}
+		}
+	},
+	"Resources": {
+		"CouchbaseDHCP": {
+			"Type": "AWS::EC2::DHCPOptions",
+			"Properties": {
+				"DomainName": {
+					"Fn::FindInMap": [
+						"DomainNameMapping", {
+							"Ref": "AWS::Region"
+						},
+						"NAME"
+					]
+				},
+				"DomainNameServers": [
+					"AmazonProvidedDNS"
+				],
+				"Tags": [{
+					"Key": "Name",
+					"Value": "CouchbaseDHCP"
+				}]
+			}
+		},
+		"VPC": {
+			"Type": "AWS::EC2::VPC",
+			"Properties": {
+				"CidrBlock": {
+					"Ref": "VPCCIDR"
+				},
+				"EnableDnsHostnames": "true",
+				"EnableDnsSupport": "true",
+				"Tags": [{
+					"Key": "Application",
+					"Value": "Couchbase"
+				}]
+			}
+		},
+		"CouchbaseVPCDHCPOptionsAssociation": {
+			"Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"DhcpOptionsId": {
+					"Ref": "CouchbaseDHCP"
+				}
+			}
+		},
+		"InternetGateway": {
+			"Type": "AWS::EC2::InternetGateway"
+		},
+		"AttachGateway": {
+			"Type": "AWS::EC2::VPCGatewayAttachment",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"InternetGatewayId": {
+					"Ref": "InternetGateway"
+				}
+			}
+		},
+		"CouchbaseSubnet": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"CidrBlock": {
+					"Ref": "PrivSubCIDR"
+				},
+				"Tags": [{
+					"Key": "Application",
+					"Value": "Couchbase"
+				}, {
+					"Key": "Network",
+					"Value": "Private (Couchbase)"
+				}],
+				"AvailabilityZone": {
+					"Ref": "AvailabilityZone"
+				}
+			}
+		},
+		"PublicSubnet": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"CidrBlock": {
+					"Ref": "PublicSubCIDR"
+				},
+				"Tags": [{
+					"Key": "Application",
+					"Value": "NAT and CouchbaseNodes (Couchbase)"
+				}, {
+					"Key": "Network",
+					"Value": "Public"
+				}],
+				"AvailabilityZone": {
+					"Ref": "AvailabilityZone"
+				}
+			}
+		},
+		"NATInstance": {
+			"Type": "AWS::EC2::Instance",
+			"Properties": {
+				"Tags": [{
+					"Key": "Name",
+					"Value": "NAT Instance (Couchbase Public Subnet)"
+				}],
+				"InstanceType": {
+					"Ref": "NATInstanceType"
+				},
+				"KeyName": {
+					"Ref": "KeyName"
+				},
+				"NetworkInterfaces": [{
+					"NetworkInterfaceId": {
+						"Ref": "NATInterface"
+					},
+					"DeviceIndex": "0"
+				}],
+				"ImageId": {
+					"Fn::FindInMap": [
+						"AWSNATAMI", {
+							"Ref": "AWS::Region"
+						},
+						"AMI"
+					]
+				}
+			}
+		},
+		"NATEIP": {
+			"Type": "AWS::EC2::EIP",
+			"Properties": {
+				"Domain": "vpc"
+			}
+		},
+		"NATInterface": {
+			"Type": "AWS::EC2::NetworkInterface",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "PublicSubnet"
+				},
+				"Description": "External interface for the NAT instance",
+				"GroupSet": [{
+					"Ref": "NATSecurityGroup"
+				}],
+				"SourceDestCheck": "false",
+				"Tags": [{
+					"Key": "Network",
+					"Value": "Public (Couchbase)"
+				}]
+			}
+		},
+		"AssociateInterfaceNAT": {
+			"Type": "AWS::EC2::EIPAssociation",
+			"Properties": {
+				"AllocationId": {
+					"Fn::GetAtt": [
+						"NATEIP",
+						"AllocationId"
+					]
+				},
+				"NetworkInterfaceId": {
+					"Ref": "NATInterface"
+				}
+			}
+		},
+		"NATSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Enable internal access to the NAT device",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress": [{
+					"IpProtocol": "tcp",
+					"FromPort": "80",
+					"ToPort": "80",
+					"CidrIp": {
+						"Ref": "VPCCIDR"
+					}
+				}, {
+					"IpProtocol": "udp",
+					"FromPort": "123",
+					"ToPort": "123",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "443",
+					"ToPort": "443",
+					"CidrIp": {
+						"Ref": "VPCCIDR"
+					}
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "22",
+					"ToPort": "22",
+					"CidrIp": {
+						"Ref": "RemoteAccessCIDR"
+					}
+				}],
+				"SecurityGroupEgress": [{
+					"IpProtocol": "tcp",
+					"FromPort": "80",
+					"ToPort": "80",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "443",
+					"ToPort": "443",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "udp",
+					"FromPort": "123",
+					"ToPort": "123",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "22",
+					"ToPort": "22",
+					"CidrIp": {
+						"Ref": "PrivSubCIDR"
+					}
+				}]
+			}
+		},
+		"CouchbaseNodesSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "CouchbaseNodes Instance security group",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress": [{
+					"IpProtocol": "tcp",
+					"FromPort": "22",
+					"ToPort": "22",
+					"CidrIp": {
+						"Ref": "RemoteAccessCIDR"
+					}
+				}, {
+					"IpProtocol": "udp",
+					"FromPort": "123",
+					"ToPort": "123",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "1",
+					"ToPort": "65535",
+					"CidrIp": {
+						"Ref": "PrivSubCIDR"
+					}
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "1",
+					"ToPort": "65535",
+					"CidrIp": {
+						"Ref": "PublicSubCIDR"
+					}
+				}],
+				"SecurityGroupEgress": [{
+					"IpProtocol": "tcp",
+					"FromPort": "1",
+					"ToPort": "65535",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "udp",
+					"FromPort": "1",
+					"ToPort": "65535",
+					"CidrIp": "0.0.0.0/0"
+				}]
+			}
+		},
+		"CouchbaseNode0EIP": {
+			"Type": "AWS::EC2::EIP",
+			"Properties": {
+				"Domain": "vpc"
+			}
+		},
+		"CouchbaseNode0Interface": {
+			"Type": "AWS::EC2::NetworkInterface",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "PublicSubnet"
+				},
+				"Description": "Interface for CouchbaseNodes Instance",
+				"GroupSet": [{
+					"Ref": "CouchbaseNodesSecurityGroup"
+				}],
+				"SourceDestCheck": "true",
+				"Tags": [{
+					"Key": "Network",
+					"Value": "Public (Couchbase)"
+				}]
+			}
+		},
+		"AssociateCouchbaseNode0EIP": {
+			"Type": "AWS::EC2::EIPAssociation",
+			"Properties": {
+				"AllocationId": {
+					"Fn::GetAtt": [
+						"CouchbaseNode0EIP",
+						"AllocationId"
+					]
+				},
+				"NetworkInterfaceId": {
+					"Ref": "CouchbaseNode0Interface"
+				}
+			}
+		},
+
+		"CouchbaseNode1EIP": {
+			"Type": "AWS::EC2::EIP",
+			"Properties": {
+				"Domain": "vpc"
+			}
+		},
+		"CouchbaseNode1Interface": {
+			"Type": "AWS::EC2::NetworkInterface",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "PublicSubnet"
+				},
+				"Description": "Interface for CouchbaseNodes Instance",
+				"GroupSet": [{
+					"Ref": "CouchbaseNodesSecurityGroup"
+				}],
+				"SourceDestCheck": "true",
+				"Tags": [{
+					"Key": "Network",
+					"Value": "Public (Couchbase)"
+				}]
+			}
+		},
+		"AssociateCouchbaseNode1EIP": {
+			"Type": "AWS::EC2::EIPAssociation",
+			"Properties": {
+				"AllocationId": {
+					"Fn::GetAtt": [
+						"CouchbaseNode1EIP",
+						"AllocationId"
+					]
+				},
+				"NetworkInterfaceId": {
+					"Ref": "CouchbaseNode1Interface"
+				}
+			}
+		},
+		"CouchbaseClusterRouteTable": {
+			"Type": "AWS::EC2::RouteTable",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Application",
+					"Value": "Couchbase"
+				}]
+			}
+		},
+		"DMZRouteTable": {
+			"Type": "AWS::EC2::RouteTable",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Application",
+					"Value": "NAT"
+				}]
+			}
+		},
+		"PublicRoute": {
+			"Type": "AWS::EC2::Route",
+			"Properties": {
+				"RouteTableId": {
+					"Ref": "DMZRouteTable"
+				},
+				"DestinationCidrBlock": "0.0.0.0/0",
+				"GatewayId": {
+					"Ref": "InternetGateway"
+				}
+			}
+		},
+		"CouchbaseClusterRoute": {
+			"Type": "AWS::EC2::Route",
+			"Properties": {
+				"RouteTableId": {
+					"Ref": "CouchbaseClusterRouteTable"
+				},
+				"DestinationCidrBlock": "0.0.0.0/0",
+				"InstanceId": {
+					"Ref": "NATInstance"
+				}
+			}
+		},
+		"PublicNetworkAcl": {
+			"Type": "AWS::EC2::NetworkAcl",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"Tags": [{
+					"Key": "Network",
+					"Value": "Public"
+				}]
+			}
+		},
+		"CouchbaseSubnetRouteTableAssociation": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "CouchbaseSubnet"
+				},
+				"RouteTableId": {
+					"Ref": "CouchbaseClusterRouteTable"
+				}
+			}
+		},
+		"PublicSubnetRouteTableAssociation": {
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "PublicSubnet"
+				},
+				"RouteTableId": {
+					"Ref": "DMZRouteTable"
+				}
+			}
+		},
+		"InboundPublicNetworkAclEntry": {
+			"Type": "AWS::EC2::NetworkAclEntry",
+			"Properties": {
+				"NetworkAclId": {
+					"Ref": "PublicNetworkAcl"
+				},
+				"RuleNumber": "100",
+				"Protocol": "6",
+				"RuleAction": "allow",
+				"Egress": "false",
+				"CidrBlock": "0.0.0.0/0",
+				"PortRange": {
+					"From": "0",
+					"To": "65535"
+				}
+			}
+		},
+		"OutBoundPublicNetworkAclEntry": {
+			"Type": "AWS::EC2::NetworkAclEntry",
+			"Properties": {
+				"NetworkAclId": {
+					"Ref": "PublicNetworkAcl"
+				},
+				"RuleNumber": "100",
+				"Protocol": "6",
+				"RuleAction": "allow",
+				"Egress": "true",
+				"CidrBlock": "0.0.0.0/0",
+				"PortRange": {
+					"From": "0",
+					"To": "65535"
+				}
+			}
+		},
+		"CouchbaseNodesInstanceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"Service": [
+								"ec2.amazonaws.com"
+							]
+						},
+						"Action": [
+							"sts:AssumeRole"
+						]
+					}]
+				},
+				"Path": "/",
+				"Policies": [{
+					"PolicyName": "root",
+					"PolicyDocument": {
+						"Version": "2012-10-17",
+						"Statement": [{
+							"Effect": "Allow",
+							"Action": [
+								"ec2:Describe*",
+								"ec2:AttachNetworkInterface",
+								"ec2:AttachVolume",
+								"ec2:CreateTags",
+								"ec2:CreateVolume",
+								"ec2:DeleteVolume",
+								"ec2:RunInstances",
+								"ec2:StartInstances",
+								"ec2:CreateSecurityGroup",
+								"ec2:CreatePlacementGroup",
+								"ec2:CreateSnapshot"
+							],
+							"Resource": "*"
+						}, {
+							"Effect": "Allow",
+							"Action": [
+								"cloudformation:CreateStack",
+								"cloudformation:DeleteStack",
+								"cloudformation:DescribeStack",
+								"cloudformation:EstimateTemplateCost",
+								"cloudformation:ValidateTemplate",
+								"cloudformation:DescribeStackEvents",
+								"cloudformation:DescribeStackResource",
+								"cloudformation:DescribeStackResources",
+								"cloudformation:DescribeStacks"
+							],
+							"Resource": [
+								"*"
+							]
+						}]
+					}
+				}]
+			}
+		},
+		"CouchbaseNodesProfile": {
+			"Type": "AWS::IAM::InstanceProfile",
+			"Properties": {
+				"Path": "/",
+				"Roles": [{
+					"Ref": "CouchbaseNodesInstanceRole"
+				}]
+			}
+		},
+
+		"AutoScaledInstanceSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Enable SSH access and port 8091/8093",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress": [{
+						"IpProtocol": "tcp",
+						"FromPort": "22",
+						"ToPort": "22",
+						"CidrIp": {
+							"Ref": "RemoteAccessCIDR"
+						}
+					}, {
+						"IpProtocol": "tcp",
+						"FromPort": "8091",
+						"ToPort": "8091",
+						"CidrIp": {
+							"Ref": "RemoteAccessCIDR"
+						}
+					}, {
+						"IpProtocol": "tcp",
+						"FromPort": "8093",
+						"ToPort": "8093",
+						"CidrIp": {
+							"Ref": "RemoteAccessCIDR"
+						}
+					}
+
+				],
+				"SecurityGroupEgress": {
+					"IpProtocol": "-1",
+					"FromPort": "1",
+					"ToPort": "65535",
+					"CidrIp": "0.0.0.0/0"
+				}
+			}
+		},
+		"AutoScaledInstanceLoopSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"GroupDescription": "Enable all communications within Auto Scaled instances",
+				"VpcId": {
+					"Ref": "VPC"
+				},
+				"SecurityGroupIngress": [{
+					"IpProtocol": "-1",
+					"FromPort": "1",
+					"ToPort": "65535",
+					"SourceSecurityGroupId": {
+						"Ref": "AutoScaledInstanceSecurityGroup"
+					}
+				}]
+			}
+		},
+
+		"NotificationTopic": {
+			"Type": "AWS::SNS::Topic",
+			"Condition": "AllowNotificationEmail",
+			"Properties": {
+				"TopicName": "CouchbaseAutoScaler",
+				"Subscription": [{
+					"Endpoint": {
+						"Ref": "NotificationEmail"
+					},
+					"Protocol": "email"
+				}]
+			}
+		},
+
+		"DataServerGroup": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"Tags": [{
+					"Key": "Name",
+					"Value": "Couchbase (DataServers)",
+					"PropagateAtLaunch": "true"
+				}],
+				"LaunchConfigurationName": {
+					"Ref": "DataServerLaunchConfig"
+				},
+				"MinSize": {
+					"Ref": "DataServerCount"
+				},
+				"MaxSize": {
+					"Ref": "DataServerCount"
+				},
+				"DesiredCapacity": {
+					"Ref": "DataServerCount"
+				},
+				"VPCZoneIdentifier": [{
+					"Ref": "PublicSubnet"
+				}],
+				"MetricsCollection": [{
+					"Granularity": "1Minute",
+					"Metrics": [
+						"GroupMinSize",
+						"GroupMaxSize"
+					]
+				}],
+				"NotificationConfiguration": {
+					"Fn::If": [
+						"AllowNotificationEmail", {
+							"TopicARN": {
+								"Ref": "NotificationTopic"
+							},
+							"NotificationTypes": [
+								"autoscaling:EC2_INSTANCE_LAUNCH",
+								"autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+								"autoscaling:EC2_INSTANCE_TERMINATE",
+								"autoscaling:EC2_INSTANCE_TERMINATE_ERROR"
+							]
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+					]
+				}
+			},
+			"CreationPolicy": {
+				"ResourceSignal": {
+					"Timeout": "PT3600M",
+					"Count": "1"
+				}
+			},
+			"UpdatePolicy": {
+				"AutoScalingRollingUpdate": {
+					"MinInstancesInService": "1",
+					"MaxBatchSize": "1",
+					"PauseTime": "PT15M",
+					"WaitOnResourceSignals": "true"
+				}
+			}
+		},
+
+		"IndexServerGroup": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"Tags": [{
+					"Key": "Name",
+					"Value": "Couchbase (IndexServers)",
+					"PropagateAtLaunch": "true"
+				}],
+				"LaunchConfigurationName": {
+					"Ref": "IndexServerLaunchConfig"
+				},
+				"MinSize": {
+					"Ref": "IndexServerCount"
+				},
+				"MaxSize": {
+					"Ref": "IndexServerCount"
+				},
+				"DesiredCapacity": {
+					"Ref": "IndexServerCount"
+				},
+				"VPCZoneIdentifier": [{
+					"Ref": "PublicSubnet"
+				}],
+				"MetricsCollection": [{
+					"Granularity": "1Minute",
+					"Metrics": [
+						"GroupMinSize",
+						"GroupMaxSize"
+					]
+				}],
+				"NotificationConfiguration": {
+					"Fn::If": [
+						"AllowNotificationEmail", {
+							"TopicARN": {
+								"Ref": "NotificationTopic"
+							},
+							"NotificationTypes": [
+								"autoscaling:EC2_INSTANCE_LAUNCH",
+								"autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+								"autoscaling:EC2_INSTANCE_TERMINATE",
+								"autoscaling:EC2_INSTANCE_TERMINATE_ERROR"
+							]
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+					]
+				}
+			},
+			"CreationPolicy": {
+				"ResourceSignal": {
+					"Timeout": "PT3600M",
+					"Count": "1"
+				}
+			},
+			"UpdatePolicy": {
+				"AutoScalingRollingUpdate": {
+					"MinInstancesInService": "1",
+					"MaxBatchSize": "1",
+					"PauseTime": "PT15M",
+					"WaitOnResourceSignals": "true"
+				}
+			}
+		},
+
+
+		"QueryServerGroup": {
+			"Type": "AWS::AutoScaling::AutoScalingGroup",
+			"Properties": {
+				"Tags": [{
+					"Key": "Name",
+					"Value": "Couchbase (QueryServers)",
+					"PropagateAtLaunch": "true"
+				}],
+				"LaunchConfigurationName": {
+					"Ref": "QueryServerLaunchConfig"
+				},
+				"MinSize": {
+					"Ref": "QueryServerCount"
+				},
+				"MaxSize": {
+					"Ref": "QueryServerCount"
+				},
+				"DesiredCapacity": {
+					"Ref": "QueryServerCount"
+				},
+				"VPCZoneIdentifier": [{
+					"Ref": "PublicSubnet"
+				}],
+				"MetricsCollection": [{
+					"Granularity": "1Minute",
+					"Metrics": [
+						"GroupMinSize",
+						"GroupMaxSize"
+					]
+				}],
+				"NotificationConfiguration": {
+					"Fn::If": [
+						"AllowNotificationEmail", {
+							"TopicARN": {
+								"Ref": "NotificationTopic"
+							},
+							"NotificationTypes": [
+								"autoscaling:EC2_INSTANCE_LAUNCH",
+								"autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+								"autoscaling:EC2_INSTANCE_TERMINATE",
+								"autoscaling:EC2_INSTANCE_TERMINATE_ERROR"
+							]
+						}, {
+							"Ref": "AWS::NoValue"
+						}
+					]
+				}
+			},
+			"CreationPolicy": {
+				"ResourceSignal": {
+					"Timeout": "PT3600M",
+					"Count": "1"
+				}
+			},
+			"UpdatePolicy": {
+				"AutoScalingRollingUpdate": {
+					"MinInstancesInService": "1",
+					"MaxBatchSize": "1",
+					"PauseTime": "PT15M",
+					"WaitOnResourceSignals": "true"
+				}
+			}
+		},
+
+
+		"DataServerLaunchConfig": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"AssociatePublicIpAddress": "true",
+				"EbsOptimized": "false",
+				"KeyName": {
+					"Ref": "KeyName"
+				},
+
+				"ImageId": {
+					"Fn::FindInMap": [
+						"CouchbaseNodeAMI", {
+							"Ref": "AWS::Region"
+						},
+						"AMI"
+					]
+				},
+
+				"IamInstanceProfile": {
+					"Ref": "CouchbaseNodesProfile"
+				},
+				"SecurityGroups": [{
+					"Ref": "AutoScaledInstanceSecurityGroup"
+				}],
+				"InstanceType": {
+					"Ref": "DataServersInstanceType"
+				},
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": [
+							"", [
+								"#!/bin/bash -xe\n",
+								"/opt/aws/bin/cfn-signal -e $? ",
+								"         --stack ", {
+									"Ref": "AWS::StackName"
+								},
+								"         --resource DataServerGroup ",
+								"         --region ", {
+									"Ref": "AWS::Region"
+								},
+								"\n"
+							]
+						]
+					}
+				}
+			}
+		},
+
+
+		"IndexServerLaunchConfig": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"AssociatePublicIpAddress": "true",
+				"EbsOptimized": "false",
+				"KeyName": {
+					"Ref": "KeyName"
+				},
+
+				"ImageId": {
+					"Fn::FindInMap": [
+						"CouchbaseNodeAMI", {
+							"Ref": "AWS::Region"
+						},
+						"AMI"
+					]
+				},
+
+				"IamInstanceProfile": {
+					"Ref": "CouchbaseNodesProfile"
+				},
+				"SecurityGroups": [{
+					"Ref": "AutoScaledInstanceSecurityGroup"
+				}],
+				"InstanceType": {
+					"Ref": "IndexServersInstanceType"
+				},
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": [
+							"", [
+								"#!/bin/bash -xe\n",
+								"/opt/aws/bin/cfn-signal -e $? ",
+								"         --stack ", {
+									"Ref": "AWS::StackName"
+								},
+								"         --resource IndexServerGroup ",
+								"         --region ", {
+									"Ref": "AWS::Region"
+								},
+								"\n"
+							]
+						]
+					}
+				}
+			}
+		},
+
+
+		"QueryServerLaunchConfig": {
+			"Type": "AWS::AutoScaling::LaunchConfiguration",
+			"Properties": {
+				"AssociatePublicIpAddress": "true",
+				"EbsOptimized": "false",
+				"KeyName": {
+					"Ref": "KeyName"
+				},
+
+				"ImageId": {
+					"Fn::FindInMap": [
+						"CouchbaseNodeAMI", {
+							"Ref": "AWS::Region"
+						},
+						"AMI"
+					]
+				},
+
+				"IamInstanceProfile": {
+					"Ref": "CouchbaseNodesProfile"
+				},
+				"SecurityGroups": [{
+					"Ref": "AutoScaledInstanceSecurityGroup"
+				}],
+				"InstanceType": {
+					"Ref": "QueryServersInstanceType"
+				},
+				"UserData": {
+					"Fn::Base64": {
+						"Fn::Join": [
+							"", [
+								"#!/bin/bash -xe\n",
+								"/opt/aws/bin/cfn-signal -e $? ",
+								"         --stack ", {
+									"Ref": "AWS::StackName"
+								},
+								"         --resource QueryServerGroup ",
+								"         --region ", {
+									"Ref": "AWS::Region"
+								},
+								"\n"
+							]
+						]
+					}
+				}
+			}
+		},
+
+
+
+		"WebServerScaleUpPolicy": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"AutoScalingGroupName": {
+					"Ref": "DataServerGroup"
+				},
+				"Cooldown": "60",
+				"ScalingAdjustment": "1"
+			}
+		},
+		"WebServerScaleDownPolicy": {
+			"Type": "AWS::AutoScaling::ScalingPolicy",
+			"Properties": {
+				"AdjustmentType": "ChangeInCapacity",
+				"AutoScalingGroupName": {
+					"Ref": "DataServerGroup"
+				},
+				"Cooldown": "60",
+				"ScalingAdjustment": "-1"
+			}
+		},
+		"CPUAlarmHigh": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+				"AlarmDescription": "Scale-up if CPU > 90% for 10 minutes",
+				"MetricName": "CPUUtilization",
+				"Namespace": "AWS/EC2",
+				"Statistic": "Average",
+				"Period": "300",
+				"EvaluationPeriods": "2",
+				"Threshold": "90",
+				"AlarmActions": [{
+					"Ref": "WebServerScaleUpPolicy"
+				}],
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": {
+						"Ref": "DataServerGroup"
+					}
+				}],
+				"ComparisonOperator": "GreaterThanThreshold"
+			}
+		},
+		"CPUAlarmLow": {
+			"Type": "AWS::CloudWatch::Alarm",
+			"Properties": {
+				"AlarmDescription": "Scale-down if CPU < 70% for 10 minutes",
+				"MetricName": "CPUUtilization",
+				"Namespace": "AWS/EC2",
+				"Statistic": "Average",
+				"Period": "300",
+				"EvaluationPeriods": "2",
+				"Threshold": "70",
+				"AlarmActions": [{
+					"Ref": "WebServerScaleDownPolicy"
+				}],
+				"Dimensions": [{
+					"Name": "AutoScalingGroupName",
+					"Value": {
+						"Ref": "DataServerGroup"
+					}
+				}],
+				"ComparisonOperator": "LessThanThreshold"
+			}
+		}
+	}
+}
