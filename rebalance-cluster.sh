@@ -1,14 +1,9 @@
 export COUCHBASE_CLI=/Users/arungupta/tools/Couchbase-Server-4.0.app/Contents/Resources/couchbase-core/bin/couchbase-cli
-export primary=$1
-shift
-for ip in "$@" 
-do
-	$COUCHBASE_CLI \
-	rebalance \
-	--cluster=$primary:8091 \
-	--user Administrator \
-	--password password \
-	--server-add-username=Administrator \
-	--server-add-password=password
-done
+$COUCHBASE_CLI \
+rebalance \
+--cluster=$1:8091 \
+--user Administrator \
+--password password \
+--server-add-username=Administrator \
+--server-add-password=password
 
